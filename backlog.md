@@ -57,18 +57,19 @@ src/
 - [ ] E2E テスト: トランスパイル結果を dash で実行して期待出力と比較
 
 ## Phase 2: 実用
-- [ ] エラーメッセージ (行番号・カラム付き)
+- [x] エラーメッセージ (行番号・カラム付き)
 - [x] `shx --check` (構文チェックのみ)
 - [x] `shx file.shx` でデフォルト実行 (`--emit` で出力のみ)
 - [x] ネストした制御構文
-- [ ] ヒアドキュメント対応
+- [x] ヒアドキュメント対応
 - [x] コメント保持
 
 ## Phase 3: 発展
-- [ ] shebang対応 (`#!/usr/bin/env shx`)
+- [x] shebang対応 (`#!/usr/bin/env shx` → `#!/bin/sh` に変換)
 - [ ] パイプライン内の制御構文
 - [ ] シンタックスハイライト (tree-sitter grammar)
 - [ ] POSIX sh → shx 逆変換
+- [ ] 式 if/match (Rust風: `result = if [...] { "yes" } else { "no" }` → 各ブランチで変数代入に変換)
 
 ## 設計判断
 - POSIX sh の superset = 既存の POSIX sh スクリプトはそのまま有効な shx

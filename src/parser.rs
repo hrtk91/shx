@@ -1,7 +1,22 @@
 use crate::ast::*;
-use crate::lexer::Token;
+use crate::lexer::{Span, Token, TokenKind};
+use std::fmt;
 
-pub fn parse(tokens: Vec<Token>) -> Vec<Node> {
+#[derive(Debug, Clone)]
+pub struct ParseError {
+    pub message: String,
+    pub span: Span,
+}
+
+impl fmt::Display for ParseError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}:{}: {}", self.span.line, self.span.column, self.message)
+    }
+}
+
+impl std::error::Error for ParseError {}
+
+pub fn parse(tokens: Vec<Token>) -> Result<Vec<Node>, ParseError> {
     let mut parser = Parser::new(tokens);
     parser.parse_top()
 }
@@ -20,6 +35,17 @@ impl Parser {
         self.tokens.get(self.pos)
     }
 
+    fn peek_kind(&self) -> Option<&TokenKind> {
+        self.peek().map(|t| &t.kind)
+    }
+
+    fn current_span(&self) -> Span {
+        self.peek().map(|t| t.span).unwrap_or(Span {
+            line: 1,
+            column: 1,
+        })
+    }
+
     fn next(&mut self) -> Option<Token> {
         let tok = self.tokens.get(self.pos).cloned();
         if tok.is_some() {
@@ -29,50 +55,68 @@ impl Parser {
     }
 
     fn peek_word(&self) -> Option<&str> {
-        match self.peek() {
-            Some(Token::Word(w)) => Some(w),
+        match self.peek_kind() {
+            Some(TokenKind::Word(w)) => Some(w),
             _ => None,
         }
     }
 
     fn skip_terminators(&mut self) {
-        while matches!(self.peek(), Some(Token::Newline | Token::Semicolon)) {
+        while matches!(
+            self.peek_kind(),
+            Some(TokenKind::Newline | TokenKind::Semicolon)
+        ) {
             self.next();
         }
     }
 
-    fn expect_open_brace(&mut self) {
+    fn expect_open_brace(&mut self) -> Result<(), ParseError> {
+        let span = self.current_span();
         match self.next() {
-            Some(Token::OpenBrace) => {}
-            other => panic!("expected '{{', got {:?}", other),
+            Some(Token { kind: TokenKind::OpenBrace, .. }) => Ok(()),
+            Some(t) => Err(ParseError {
+                message: format!("expected '{{', got {:?}", t.kind),
+                span,
+            }),
+            None => Err(ParseError {
+                message: "expected '{', got end of input".into(),
+                span,
+            }),
         }
     }
 
-    fn expect_close_brace(&mut self) {
+    fn expect_close_brace(&mut self) -> Result<(), ParseError> {
+        let span = self.current_span();
         match self.next() {
-            Some(Token::CloseBrace) => {}
-            other => panic!("expected '}}', got {:?}", other),
+            Some(Token { kind: TokenKind::CloseBrace, .. }) => Ok(()),
+            Some(t) => Err(ParseError {
+                message: format!("expected '}}', got {:?}", t.kind),
+                span,
+            }),
+            None => Err(ParseError {
+                message: "expected '}', got end of input".into(),
+                span,
+            }),
         }
     }
 
-    fn parse_top(&mut self) -> Vec<Node> {
+    fn parse_top(&mut self) -> Result<Vec<Node>, ParseError> {
         self.parse_body(false)
     }
 
-    fn parse_body(&mut self, until_close_brace: bool) -> Vec<Node> {
+    fn parse_body(&mut self, until_close_brace: bool) -> Result<Vec<Node>, ParseError> {
         let mut nodes = Vec::new();
         loop {
             self.skip_terminators();
-            match self.peek() {
+            match self.peek_kind() {
                 None => break,
-                Some(Token::CloseBrace) if until_close_brace => break,
+                Some(TokenKind::CloseBrace) if until_close_brace => break,
                 _ => {}
             }
             // Standalone comment on its own line
-            if let Some(Token::Comment(c)) = self.peek() {
+            if let Some(TokenKind::Comment(c)) = self.peek_kind() {
                 let c = c.clone();
                 self.next();
-                // Shebang lines are passed through as Raw
                 if c.starts_with("#!") {
                     nodes.push(Node::Raw(c));
                 } else {
@@ -81,13 +125,12 @@ impl Parser {
                 continue;
             }
             let node = match self.peek_word() {
-                Some("if") => self.parse_if(),
-                Some("for") => self.parse_for(),
-                Some("while") => self.parse_while(),
-                Some("match") => self.parse_match(),
+                Some("if") => self.parse_if()?,
+                Some("for") => self.parse_for()?,
+                Some("while") => self.parse_while()?,
+                Some("match") => self.parse_match()?,
                 _ => self.parse_raw_line(),
             };
-            // Skip empty raw nodes
             if let Node::Raw(ref s) = node {
                 if s.is_empty() {
                     continue;
@@ -95,135 +138,149 @@ impl Parser {
             }
             nodes.push(node);
         }
-        nodes
+        Ok(nodes)
     }
 
-    /// Collect words until `{`, returning them joined by spaces.
     fn collect_until_brace(&mut self) -> String {
         let mut parts = Vec::new();
         loop {
-            match self.peek() {
-                None | Some(Token::OpenBrace) => break,
-                Some(Token::Newline | Token::Semicolon) => break,
-                Some(Token::Word(w)) => {
+            match self.peek_kind() {
+                None | Some(TokenKind::OpenBrace) => break,
+                Some(TokenKind::Newline | TokenKind::Semicolon) => break,
+                Some(TokenKind::Word(w)) => {
                     parts.push(w.clone());
                     self.next();
                 }
-                Some(Token::Comment(c)) => {
+                Some(TokenKind::Comment(c)) => {
                     parts.push(c.clone());
                     self.next();
                 }
-                Some(Token::Arrow) => {
+                Some(TokenKind::Arrow) => {
                     parts.push("=>".into());
                     self.next();
                 }
-                Some(Token::CloseBrace) => break,
+                Some(TokenKind::CloseBrace) => break,
             }
         }
         parts.join(" ")
     }
 
-    fn parse_if(&mut self) -> Node {
+    fn parse_if(&mut self) -> Result<Node, ParseError> {
         self.next(); // consume "if"
         let condition = self.collect_until_brace();
-        self.expect_open_brace();
-        let body = self.parse_body(true);
-        self.expect_close_brace();
+        self.expect_open_brace()?;
+        let body = self.parse_body(true)?;
+        self.expect_close_brace()?;
 
         let mut branches = vec![Branch { condition, body }];
 
-        // elif branches
         loop {
             self.skip_terminators();
             if self.peek_word() != Some("elif") {
                 break;
             }
-            self.next(); // consume "elif"
+            self.next();
             let condition = self.collect_until_brace();
-            self.expect_open_brace();
-            let body = self.parse_body(true);
-            self.expect_close_brace();
+            self.expect_open_brace()?;
+            let body = self.parse_body(true)?;
+            self.expect_close_brace()?;
             branches.push(Branch { condition, body });
         }
 
-        // else
         let else_body = if self.peek_word() == Some("else") {
             self.next();
-            self.expect_open_brace();
-            let body = self.parse_body(true);
-            self.expect_close_brace();
+            self.expect_open_brace()?;
+            let body = self.parse_body(true)?;
+            self.expect_close_brace()?;
             Some(body)
         } else {
             None
         };
 
-        Node::If {
+        Ok(Node::If {
             branches,
             else_body,
-        }
+        })
     }
 
-    fn parse_for(&mut self) -> Node {
+    fn parse_for(&mut self) -> Result<Node, ParseError> {
+        let for_span = self.current_span();
         self.next(); // consume "for"
         let var = match self.next() {
-            Some(Token::Word(w)) => w,
-            other => panic!("expected variable name after 'for', got {:?}", other),
+            Some(Token { kind: TokenKind::Word(w), .. }) => w,
+            other => {
+                let span = other.as_ref().map(|t| t.span).unwrap_or(for_span);
+                return Err(ParseError {
+                    message: format!(
+                        "expected variable name after 'for', got {:?}",
+                        other.map(|t| t.kind)
+                    ),
+                    span,
+                });
+            }
         };
         match self.peek_word() {
             Some("in") => {
                 self.next();
             }
-            other => panic!("expected 'in' after 'for {var}', got {:?}", other),
+            _ => {
+                return Err(ParseError {
+                    message: format!("expected 'in' after 'for {}'", var),
+                    span: self.current_span(),
+                });
+            }
         }
         let list = self.collect_until_brace();
-        self.expect_open_brace();
-        let body = self.parse_body(true);
-        self.expect_close_brace();
-        Node::For { var, list, body }
+        self.expect_open_brace()?;
+        let body = self.parse_body(true)?;
+        self.expect_close_brace()?;
+        Ok(Node::For { var, list, body })
     }
 
-    fn parse_while(&mut self) -> Node {
+    fn parse_while(&mut self) -> Result<Node, ParseError> {
         self.next(); // consume "while"
         let condition = self.collect_until_brace();
-        self.expect_open_brace();
-        let body = self.parse_body(true);
-        self.expect_close_brace();
-        Node::While { condition, body }
+        self.expect_open_brace()?;
+        let body = self.parse_body(true)?;
+        self.expect_close_brace()?;
+        Ok(Node::While { condition, body })
     }
 
-    fn parse_match(&mut self) -> Node {
+    fn parse_match(&mut self) -> Result<Node, ParseError> {
         self.next(); // consume "match"
         let expr = self.collect_until_brace();
-        self.expect_open_brace();
+        self.expect_open_brace()?;
 
         let mut arms = Vec::new();
         loop {
             self.skip_terminators();
-            if matches!(self.peek(), Some(Token::CloseBrace) | None) {
+            if matches!(self.peek_kind(), Some(TokenKind::CloseBrace) | None) {
                 break;
             }
-            arms.push(self.parse_match_arm());
+            arms.push(self.parse_match_arm()?);
         }
-        self.expect_close_brace();
+        self.expect_close_brace()?;
 
-        Node::Match { expr, arms }
+        Ok(Node::Match { expr, arms })
     }
 
-    fn parse_match_arm(&mut self) -> MatchArm {
-        // Collect pattern until =>
+    fn parse_match_arm(&mut self) -> Result<MatchArm, ParseError> {
         let mut pattern_parts = Vec::new();
         loop {
-            match self.peek() {
-                Some(Token::Arrow) => {
+            match self.peek_kind() {
+                Some(TokenKind::Arrow) => {
                     self.next();
                     break;
                 }
-                Some(Token::Word(w)) => {
+                Some(TokenKind::Word(w)) => {
                     pattern_parts.push(w.clone());
                     self.next();
                 }
-                Some(Token::Newline) | None => {
-                    panic!("expected '=>' in match arm, got {:?}", self.peek());
+                Some(TokenKind::Newline) | None => {
+                    return Err(ParseError {
+                        message: "expected '=>' in match arm".into(),
+                        span: self.current_span(),
+                    });
                 }
                 _ => {
                     self.next();
@@ -232,51 +289,50 @@ impl Parser {
         }
         let pattern = pattern_parts.join(" ");
 
-        // Body: if next is {, parse block; otherwise single line
-        let body = if matches!(self.peek(), Some(Token::OpenBrace)) {
-            self.next(); // consume {
-            let body = self.parse_body(true);
-            self.expect_close_brace();
+        let body = if matches!(self.peek_kind(), Some(TokenKind::OpenBrace)) {
+            self.next();
+            let body = self.parse_body(true)?;
+            self.expect_close_brace()?;
             body
         } else {
             let line = self.parse_raw_line();
             if let Node::Raw(ref s) = line {
                 if s.is_empty() {
-                    return MatchArm {
+                    return Ok(MatchArm {
                         pattern,
                         body: vec![],
-                    };
+                    });
                 }
             }
             vec![line]
         };
 
-        MatchArm { pattern, body }
+        Ok(MatchArm { pattern, body })
     }
 
     fn parse_raw_line(&mut self) -> Node {
         let mut parts = Vec::new();
         loop {
-            match self.peek() {
+            match self.peek_kind() {
                 None => break,
-                Some(Token::Newline | Token::Semicolon) => {
+                Some(TokenKind::Newline | TokenKind::Semicolon) => {
                     self.next();
                     break;
                 }
-                Some(Token::CloseBrace) => break, // don't consume — caller handles it
-                Some(Token::Word(w)) => {
+                Some(TokenKind::CloseBrace) => break,
+                Some(TokenKind::Word(w)) => {
                     parts.push(w.clone());
                     self.next();
                 }
-                Some(Token::OpenBrace) => {
+                Some(TokenKind::OpenBrace) => {
                     parts.push("{".into());
                     self.next();
                 }
-                Some(Token::Arrow) => {
+                Some(TokenKind::Arrow) => {
                     parts.push("=>".into());
                     self.next();
                 }
-                Some(Token::Comment(c)) => {
+                Some(TokenKind::Comment(c)) => {
                     parts.push(c.clone());
                     self.next();
                 }
@@ -294,7 +350,7 @@ mod tests {
     #[test]
     fn test_parse_if() {
         let tokens = tokenize("if [ \"$x\" -gt 0 ] {\n  echo yes\n}");
-        let ast = parse(tokens);
+        let ast = parse(tokens).unwrap();
         assert_eq!(
             ast,
             vec![Node::If {
@@ -310,7 +366,7 @@ mod tests {
     #[test]
     fn test_parse_if_else() {
         let tokens = tokenize("if [ 1 ] {\n  echo a\n} else {\n  echo b\n}");
-        let ast = parse(tokens);
+        let ast = parse(tokens).unwrap();
         assert_eq!(
             ast,
             vec![Node::If {
@@ -326,7 +382,7 @@ mod tests {
     #[test]
     fn test_parse_for() {
         let tokens = tokenize("for i in 1 2 3 {\n  echo $i\n}");
-        let ast = parse(tokens);
+        let ast = parse(tokens).unwrap();
         assert_eq!(
             ast,
             vec![Node::For {
@@ -340,7 +396,7 @@ mod tests {
     #[test]
     fn test_parse_while() {
         let tokens = tokenize("while [ \"$n\" -lt 10 ] {\n  n=$((n+1))\n}");
-        let ast = parse(tokens);
+        let ast = parse(tokens).unwrap();
         assert_eq!(
             ast,
             vec![Node::While {
@@ -353,7 +409,7 @@ mod tests {
     #[test]
     fn test_parse_match() {
         let tokens = tokenize("match \"$val\" {\n  \"foo\" => echo foo\n  _ => echo default\n}");
-        let ast = parse(tokens);
+        let ast = parse(tokens).unwrap();
         assert_eq!(
             ast,
             vec![Node::Match {
@@ -375,7 +431,7 @@ mod tests {
     #[test]
     fn test_passthrough() {
         let tokens = tokenize("echo hello\nFOO=bar\n");
-        let ast = parse(tokens);
+        let ast = parse(tokens).unwrap();
         assert_eq!(
             ast,
             vec![
@@ -383,5 +439,20 @@ mod tests {
                 Node::Raw("FOO=bar".into()),
             ]
         );
+    }
+
+    #[test]
+    fn test_error_missing_brace() {
+        let tokens = tokenize("if [ 1 ]\n  echo yes\n");
+        let err = parse(tokens).unwrap_err();
+        assert!(err.message.contains("expected '{'"));
+        assert_eq!(err.span.line, 1);
+    }
+
+    #[test]
+    fn test_error_missing_in() {
+        let tokens = tokenize("for i {\n  echo $i\n}");
+        let err = parse(tokens).unwrap_err();
+        assert!(err.message.contains("expected 'in'"));
     }
 }

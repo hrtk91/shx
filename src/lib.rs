@@ -4,10 +4,10 @@ pub mod lexer;
 pub mod parser;
 
 /// Transpile shx source code to POSIX sh.
-pub fn transpile(input: &str) -> String {
+pub fn transpile(input: &str) -> Result<String, parser::ParseError> {
     let tokens = lexer::tokenize(input);
-    let ast = parser::parse(tokens);
-    codegen::emit(&ast)
+    let ast = parser::parse(tokens)?;
+    Ok(codegen::emit(&ast))
 }
 
 #[cfg(test)]
@@ -35,21 +35,21 @@ else
 fi
 "#
         );
-        assert_eq!(transpile(input), expected);
+        assert_eq!(transpile(input).unwrap(), expected);
     }
 
     #[test]
     fn test_for_loop() {
         let input = "for i in 1 2 3 {\n  echo $i\n}";
         let expected = format!("{STRICT}for i in 1 2 3; do\n  echo $i\ndone\n");
-        assert_eq!(transpile(input), expected);
+        assert_eq!(transpile(input).unwrap(), expected);
     }
 
     #[test]
     fn test_while_loop() {
         let input = "while [ \"$n\" -lt 10 ] {\n  n=$((n + 1))\n}";
         let expected = format!("{STRICT}while [ \"$n\" -lt 10 ]; do\n  n=$((n + 1))\ndone\n");
-        assert_eq!(transpile(input), expected);
+        assert_eq!(transpile(input).unwrap(), expected);
     }
 
     #[test]
@@ -67,35 +67,35 @@ fi
 esac
 "#
         );
-        assert_eq!(transpile(input), expected);
+        assert_eq!(transpile(input).unwrap(), expected);
     }
 
     #[test]
     fn test_shebang_passthrough() {
         let input = "#!/bin/sh\necho hello\nFOO=bar\n";
         let expected = "#!/bin/sh\nset -eu\necho hello\nFOO=bar\n";
-        assert_eq!(transpile(input), expected);
+        assert_eq!(transpile(input).unwrap(), expected);
     }
 
     #[test]
     fn test_shebang_shx_replaced() {
         let input = "#!/usr/bin/env shx\necho hello\n";
         let expected = "#!/bin/sh\nset -eu\necho hello\n";
-        assert_eq!(transpile(input), expected);
+        assert_eq!(transpile(input).unwrap(), expected);
     }
 
     #[test]
     fn test_heredoc() {
         let input = "cat <<EOF\nhello\nworld\nEOF\n";
         let expected = "set -eu\ncat <<EOF\nhello\nworld\nEOF\n";
-        assert_eq!(transpile(input), expected);
+        assert_eq!(transpile(input).unwrap(), expected);
     }
 
     #[test]
     fn test_heredoc_in_if() {
         let input = "if [ 1 ] {\n  cat <<EOF\nhello\nEOF\n}";
         let expected = "set -eu\nif [ 1 ]; then\n  cat <<EOF\nhello\nEOF\nfi\n";
-        assert_eq!(transpile(input), expected);
+        assert_eq!(transpile(input).unwrap(), expected);
     }
 
     #[test]
@@ -113,21 +113,21 @@ esac
 done
 "#
         );
-        assert_eq!(transpile(input), expected);
+        assert_eq!(transpile(input).unwrap(), expected);
     }
 
     #[test]
     fn test_comment_preserved() {
         let input = "# this is a comment\necho hello\n";
         let expected = format!("{STRICT}# this is a comment\necho hello\n");
-        assert_eq!(transpile(input), expected);
+        assert_eq!(transpile(input).unwrap(), expected);
     }
 
     #[test]
     fn test_comment_in_if() {
         let input = "if [ 1 ] {\n  # inside\n  echo yes\n}";
         let expected = format!("{STRICT}if [ 1 ]; then\n  # inside\n  echo yes\nfi\n");
-        assert_eq!(transpile(input), expected);
+        assert_eq!(transpile(input).unwrap(), expected);
     }
 
     #[test]
@@ -149,6 +149,6 @@ done
 esac
 "#
         );
-        assert_eq!(transpile(input), expected);
+        assert_eq!(transpile(input).unwrap(), expected);
     }
 }

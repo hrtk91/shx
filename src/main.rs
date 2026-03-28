@@ -19,32 +19,23 @@ fn main() {
     };
 
     if opts.check {
-        // --check: just parse to verify syntax, don't emit
         let tokens = shx::lexer::tokenize(&input);
-        // If parse panics, it's a syntax error.
-        // Use catch_unwind to report it gracefully.
-        let result = std::panic::catch_unwind(|| {
-            shx::parser::parse(tokens);
-        });
-        match result {
-            Ok(()) => {
-                std::process::exit(0);
-            }
+        match shx::parser::parse(tokens) {
+            Ok(_) => std::process::exit(0),
             Err(e) => {
-                let msg = if let Some(s) = e.downcast_ref::<String>() {
-                    s.clone()
-                } else if let Some(s) = e.downcast_ref::<&str>() {
-                    s.to_string()
-                } else {
-                    "syntax error".to_string()
-                };
-                eprintln!("shx: {}", msg);
+                eprintln!("shx: {}", e);
                 std::process::exit(1);
             }
         }
     }
 
-    let output = shx::transpile(&input);
+    let output = match shx::transpile(&input) {
+        Ok(out) => out,
+        Err(e) => {
+            eprintln!("shx: {}", e);
+            std::process::exit(1);
+        }
+    };
 
     // Decide mode: -o → file output, --emit → stdout, file input → run, stdin → stdout
     if let Some(path) = opts.output_file {
