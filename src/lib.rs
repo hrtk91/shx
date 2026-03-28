@@ -14,7 +14,7 @@ pub fn transpile(input: &str) -> String {
 mod tests {
     use super::*;
 
-    const STRICT: &str = "set -euo pipefail\n";
+    const STRICT: &str = "set -eu\n";
 
     #[test]
     fn test_if_elif_else() {
@@ -73,7 +73,7 @@ esac
     #[test]
     fn test_passthrough_with_shebang() {
         let input = "#!/bin/sh\necho hello\nFOO=bar\n";
-        let expected = "#!/bin/sh\nset -euo pipefail\necho hello\nFOO=bar\n";
+        let expected = "#!/bin/sh\nset -eu\necho hello\nFOO=bar\n";
         assert_eq!(transpile(input), expected);
     }
 
@@ -92,6 +92,20 @@ esac
 done
 "#
         );
+        assert_eq!(transpile(input), expected);
+    }
+
+    #[test]
+    fn test_comment_preserved() {
+        let input = "# this is a comment\necho hello\n";
+        let expected = format!("{STRICT}# this is a comment\necho hello\n");
+        assert_eq!(transpile(input), expected);
+    }
+
+    #[test]
+    fn test_comment_in_if() {
+        let input = "if [ 1 ] {\n  # inside\n  echo yes\n}";
+        let expected = format!("{STRICT}if [ 1 ]; then\n  # inside\n  echo yes\nfi\n");
         assert_eq!(transpile(input), expected);
     }
 

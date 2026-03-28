@@ -2,6 +2,8 @@
 pub enum Node {
     /// Raw shell code passed through unchanged
     Raw(String),
+    /// Shell comment (e.g. # this is a comment)
+    Comment(String),
     /// if/elif/else with brace syntax
     If {
         branches: Vec<Branch>,

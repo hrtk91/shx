@@ -41,28 +41,28 @@ src/
 ```
 
 ## Phase 1: MVP
-- [ ] プロジェクト構成 (clap, lib/bin分離)
-- [ ] lexer: shx トークナイザ
-- [ ] ast: AST 型定義
-- [ ] parser: トークン列 → AST
-- [ ] codegen: AST → POSIX sh
-- [ ] 対応構文
-  - [ ] if / elif / else ブレース
-  - [ ] for ブレース
-  - [ ] while ブレース
-  - [ ] match (case の置き換え)
-- [ ] パススルー: shx 拡張構文以外はそのまま通す
-- [ ] CLI: `shx input.shx` → stdout に POSIX sh 出力
-- [ ] CLI: `shx input.shx -o output.sh`
+- [x] プロジェクト構成 (lib/bin分離, 手動argparse)
+- [x] lexer: shx トークナイザ
+- [x] ast: AST 型定義
+- [x] parser: トークン列 → AST
+- [x] codegen: AST → POSIX sh
+- [x] 対応構文
+  - [x] if / elif / else ブレース
+  - [x] for ブレース
+  - [x] while ブレース
+  - [x] match (case の置き換え)
+- [x] パススルー: shx 拡張構文以外はそのまま通す
+- [x] CLI: `shx input.shx` → stdout に POSIX sh 出力
+- [x] CLI: `shx input.shx -o output.sh`
 - [ ] E2E テスト: トランスパイル結果を dash で実行して期待出力と比較
 
 ## Phase 2: 実用
 - [ ] エラーメッセージ (行番号・カラム付き)
-- [ ] `shx --check` (構文チェックのみ)
-- [ ] `shx --run` (トランスパイル+即実行)
-- [ ] ネストした制御構文
+- [x] `shx --check` (構文チェックのみ)
+- [x] `shx file.shx` でデフォルト実行 (`--emit` で出力のみ)
+- [x] ネストした制御構文
 - [ ] ヒアドキュメント対応
-- [ ] コメント保持
+- [x] コメント保持
 
 ## Phase 3: 発展
 - [ ] shebang対応 (`#!/usr/bin/env shx`)

@@ -3,16 +3,16 @@ use crate::ast::*;
 pub fn emit(nodes: &[Node]) -> String {
     let mut output = String::new();
 
-    // shx strict mode: inject set -euo pipefail after shebang (if any)
+    // shx strict mode: inject set -eu after shebang (if any)
     let (shebang, rest) = match nodes.first() {
         Some(Node::Raw(s)) if s.starts_with("#!") => {
             output.push_str(s);
             output.push('\n');
-            output.push_str("set -euo pipefail\n");
+            output.push_str("set -eu\n");
             (true, &nodes[1..])
         }
         _ => {
-            output.push_str("set -euo pipefail\n");
+            output.push_str("set -eu\n");
             (false, nodes)
         }
     };
@@ -41,6 +41,11 @@ fn emit_node(node: &Node, out: &mut String, indent: usize) {
                 out.push_str(s);
                 out.push('\n');
             }
+        }
+        Node::Comment(c) => {
+            out.push_str(&p);
+            out.push_str(c);
+            out.push('\n');
         }
         Node::If {
             branches,
@@ -127,7 +132,7 @@ mod tests {
         assert_eq!(convert_pattern("\"foo\" | _"), "\"foo\"|*");
     }
 
-    const S: &str = "set -euo pipefail\n";
+    const S: &str = "set -eu\n";
 
     #[test]
     fn test_emit_raw() {

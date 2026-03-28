@@ -68,6 +68,18 @@ impl Parser {
                 Some(Token::CloseBrace) if until_close_brace => break,
                 _ => {}
             }
+            // Standalone comment on its own line
+            if let Some(Token::Comment(c)) = self.peek() {
+                let c = c.clone();
+                self.next();
+                // Shebang lines are passed through as Raw
+                if c.starts_with("#!") {
+                    nodes.push(Node::Raw(c));
+                } else {
+                    nodes.push(Node::Comment(c));
+                }
+                continue;
+            }
             let node = match self.peek_word() {
                 Some("if") => self.parse_if(),
                 Some("for") => self.parse_for(),
