@@ -1,0 +1,23 @@
+#!/usr/bin/env shx
+name="world"
+
+if [ "$name" = "world" ] {
+  echo "Hello, $name!"
+} else {
+  echo "Who are you?"
+}
+
+for i in 1 2 3 {
+  echo "count: $i"
+}
+
+while [ "$n" -lt 3 ] {
+  n=$((n + 1))
+  echo "n=$n"
+}
+
+match "$1" {
+  "start" => echo "Starting..."
+  "stop" | "halt" => echo "Stopping..."
+  _ => echo "Usage: $0 {start|stop}"
+}

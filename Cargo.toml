@@ -1,0 +1,8 @@
+[package]
+name = "shx"
+version = "0.1.0"
+edition = "2024"
+description = "A superset of POSIX sh with modern control flow syntax"
+
+[dev-dependencies]
+pretty_assertions = "1"

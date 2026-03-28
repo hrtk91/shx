@@ -1,0 +1,79 @@
+#!/usr/bin/env shx
+
+# --- Config ---
+PROJECT="myapp"
+BUILD_DIR="./build"
+CC="${CC:-gcc}"
+CFLAGS="-Wall -Wextra"
+VERBOSE=0
+TARGET="debug"
+
+# --- Arg parsing ---
+while [ $# -gt 0 ] {
+  match "$1" {
+    "--release" => TARGET="release"
+    "--verbose" | "-v" => VERBOSE=1
+    "--clean" => {
+      echo "Cleaning ${BUILD_DIR}..."
+      rm -rf "${BUILD_DIR}"
+      exit 0
+    }
+    "--help" | "-h" => {
+      echo "Usage: $0 [OPTIONS]"
+      echo "  --release    Build in release mode"
+      echo "  --verbose    Show commands"
+      echo "  --clean      Remove build artifacts"
+      echo "  --help       Show this help"
+      exit 0
+    }
+    _ => {
+      echo "Unknown option: $1" >&2
+      exit 1
+    }
+  }
+  shift
+}
+
+# --- Setup ---
+if [ "$TARGET" = "release" ] {
+  CFLAGS="${CFLAGS} -O2"
+  echo "Building ${PROJECT} (release)..."
+} else {
+  CFLAGS="${CFLAGS} -g -O0"
+  echo "Building ${PROJECT} (debug)..."
+}
+
+mkdir -p "${BUILD_DIR}"
+
+# --- Build ---
+SOURCES=$(find src -name '*.c' 2>/dev/null)
+
+if [ -z "$SOURCES" ] {
+  echo "No source files found" >&2
+  exit 1
+}
+
+FAILED=0
+for src in $SOURCES {
+  obj="${BUILD_DIR}/$(basename "$src" .c).o"
+  if [ "$VERBOSE" = "1" ] {
+    echo "${CC} ${CFLAGS} -c $src -o $obj"
+  }
+  if [ ! -f "$obj" ] || [ "$src" -nt "$obj" ] {
+    ${CC} ${CFLAGS} -c "$src" -o "$obj" || FAILED=1
+  }
+}
+
+if [ "$FAILED" = "1" ] {
+  echo "Build failed!" >&2
+  exit 1
+}
+
+# --- Link ---
+OBJECTS=$(find "${BUILD_DIR}" -name '*.o')
+if [ "$VERBOSE" = "1" ] {
+  echo "${CC} ${OBJECTS} -o ${BUILD_DIR}/${PROJECT}"
+}
+${CC} ${OBJECTS} -o "${BUILD_DIR}/${PROJECT}"
+
+echo "Done: ${BUILD_DIR}/${PROJECT}"
