@@ -6,8 +6,7 @@ pub fn emit(nodes: &[Node]) -> String {
     // shx strict mode: inject set -eu after shebang (if any)
     let (shebang, rest) = match nodes.first() {
         Some(Node::Raw(s)) if s.starts_with("#!") => {
-            output.push_str(s);
-            output.push('\n');
+            output.push_str("#!/bin/sh\n");
             output.push_str("set -eu\n");
             (true, &nodes[1..])
         }

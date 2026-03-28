@@ -71,9 +71,16 @@ esac
     }
 
     #[test]
-    fn test_passthrough_with_shebang() {
+    fn test_shebang_passthrough() {
         let input = "#!/bin/sh\necho hello\nFOO=bar\n";
         let expected = "#!/bin/sh\nset -eu\necho hello\nFOO=bar\n";
+        assert_eq!(transpile(input), expected);
+    }
+
+    #[test]
+    fn test_shebang_shx_replaced() {
+        let input = "#!/usr/bin/env shx\necho hello\n";
+        let expected = "#!/bin/sh\nset -eu\necho hello\n";
         assert_eq!(transpile(input), expected);
     }
 
