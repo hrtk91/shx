@@ -36,9 +36,21 @@ fn emit_node(node: &Node, out: &mut String, indent: usize) {
     match node {
         Node::Raw(s) => {
             if !s.is_empty() {
-                out.push_str(&p);
-                out.push_str(s);
-                out.push('\n');
+                if s.contains('\n') {
+                    // Multi-line raw (e.g. heredoc): indent first line only
+                    let mut lines = s.splitn(2, '\n');
+                    out.push_str(&p);
+                    out.push_str(lines.next().unwrap());
+                    out.push('\n');
+                    if let Some(rest) = lines.next() {
+                        out.push_str(rest);
+                        out.push('\n');
+                    }
+                } else {
+                    out.push_str(&p);
+                    out.push_str(s);
+                    out.push('\n');
+                }
             }
         }
         Node::Comment(c) => {

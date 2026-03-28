@@ -46,13 +46,126 @@ pub fn tokenize(input: &str) -> Vec<Token> {
                 if word == "=>" {
                     tokens.push(Token::Arrow);
                 } else {
-                    tokens.push(Token::Word(word));
+                    // Detect heredoc: <<DELIM, <<'DELIM', <<-DELIM, <<-'DELIM'
+                    let heredoc_delim = extract_heredoc_delimiter(&word);
+                    if let Some((delim, strip_tabs)) = heredoc_delim {
+                        // Build the full heredoc as a single word: <<EOF\nbody\nEOF
+                        let mut heredoc = word;
+                        heredoc.push('\n');
+                        // Consume the newline after the command line
+                        // First, read rest of line into separate tokens
+                        let mut rest_of_line = Vec::new();
+                        loop {
+                            match chars.peek() {
+                                Some(&'\n') | None => break,
+                                Some(&' ') | Some(&'\t') => { chars.next(); }
+                                Some(&'#') => {
+                                    rest_of_line.push(read_comment(&mut chars));
+                                }
+                                _ => {
+                                    rest_of_line.push(read_word(&mut chars));
+                                }
+                            }
+                        }
+                        if chars.peek() == Some(&'\n') {
+                            chars.next();
+                        }
+                        let body = read_heredoc_body(&mut chars, &delim, strip_tabs);
+                        heredoc.push_str(&body);
+                        tokens.push(Token::Word(heredoc));
+                        // Push rest-of-line tokens after the heredoc word
+                        for r in rest_of_line {
+                            if r == "=>" {
+                                tokens.push(Token::Arrow);
+                            } else if r.starts_with('#') {
+                                tokens.push(Token::Comment(r));
+                            } else {
+                                tokens.push(Token::Word(r));
+                            }
+                        }
+                    } else {
+                        tokens.push(Token::Word(word));
+                    }
                 }
             }
         }
     }
 
     tokens
+}
+
+/// Extract heredoc delimiter from a word like `<<EOF`, `<<'EOF'`, `<<-EOF`.
+/// Returns (delimiter, strip_leading_tabs).
+fn extract_heredoc_delimiter(word: &str) -> Option<(String, bool)> {
+    // Word must contain << (could be part of a larger token like cat<<EOF)
+    let heredoc_pos = word.find("<<")?;
+    let after = &word[heredoc_pos + 2..];
+    if after.is_empty() {
+        return None;
+    }
+    let (after, strip_tabs) = if after.starts_with('-') {
+        (&after[1..], true)
+    } else {
+        (after, false)
+    };
+    if after.is_empty() {
+        return None;
+    }
+    // Strip quotes: 'DELIM' or "DELIM"
+    let delim = if (after.starts_with('\'') && after.ends_with('\''))
+        || (after.starts_with('"') && after.ends_with('"'))
+    {
+        after[1..after.len() - 1].to_string()
+    } else {
+        after.to_string()
+    };
+    if delim.is_empty() {
+        return None;
+    }
+    Some((delim, strip_tabs))
+}
+
+/// Read heredoc body lines until a line matches the delimiter exactly.
+fn read_heredoc_body(chars: &mut Peekable<Chars>, delimiter: &str, strip_tabs: bool) -> String {
+    let mut body = String::new();
+    loop {
+        // Read one line
+        let mut line = String::new();
+        loop {
+            match chars.next() {
+                None => {
+                    // EOF before delimiter — emit what we have
+                    if !line.is_empty() {
+                        body.push_str(&line);
+                        body.push('\n');
+                    }
+                    // Remove trailing newline
+                    if body.ends_with('\n') {
+                        body.pop();
+                    }
+                    return body;
+                }
+                Some('\n') => break,
+                Some(c) => line.push(c),
+            }
+        }
+        // Check if this line is the delimiter
+        let trimmed = if strip_tabs {
+            line.trim_start_matches('\t')
+        } else {
+            &line
+        };
+        if trimmed == delimiter {
+            body.push_str(&line);
+            // Remove trailing newline from body
+            if body.ends_with('\n') {
+                body.pop();
+            }
+            return body;
+        }
+        body.push_str(&line);
+        body.push('\n');
+    }
 }
 
 fn read_comment(chars: &mut Peekable<Chars>) -> String {

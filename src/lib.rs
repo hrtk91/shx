@@ -85,6 +85,20 @@ esac
     }
 
     #[test]
+    fn test_heredoc() {
+        let input = "cat <<EOF\nhello\nworld\nEOF\n";
+        let expected = "set -eu\ncat <<EOF\nhello\nworld\nEOF\n";
+        assert_eq!(transpile(input), expected);
+    }
+
+    #[test]
+    fn test_heredoc_in_if() {
+        let input = "if [ 1 ] {\n  cat <<EOF\nhello\nEOF\n}";
+        let expected = "set -eu\nif [ 1 ]; then\n  cat <<EOF\nhello\nEOF\nfi\n";
+        assert_eq!(transpile(input), expected);
+    }
+
+    #[test]
     fn test_nested_if_in_for() {
         let input = r#"for f in *.txt {
   if [ -f "$f" ] {
