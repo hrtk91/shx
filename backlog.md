@@ -54,7 +54,7 @@ src/
 - [x] パススルー: shx 拡張構文以外はそのまま通す
 - [x] CLI: `shx input.shx` → stdout に POSIX sh 出力
 - [x] CLI: `shx input.shx -o output.sh`
-- [ ] E2E テスト: トランスパイル結果を dash で実行して期待出力と比較
+- [x] E2E テスト: トランスパイル結果を dash で実行して期待出力と比較
 
 ## Phase 2: 実用
 - [x] エラーメッセージ (行番号・カラム付き)
