@@ -3,11 +3,18 @@ pub mod codegen;
 pub mod lexer;
 pub mod parser;
 
-/// Transpile shx source code to POSIX sh.
+pub use codegen::Shell;
+
+/// shx ソースを POSIX sh に変換する。
 pub fn transpile(input: &str) -> Result<String, parser::ParseError> {
+    transpile_with(input, Shell::Sh)
+}
+
+/// 出力先シェルを指定して shx ソースを変換する。
+pub fn transpile_with(input: &str, shell: Shell) -> Result<String, parser::ParseError> {
     let tokens = lexer::tokenize(input);
     let ast = parser::parse(tokens)?;
-    Ok(codegen::emit(&ast))
+    Ok(codegen::emit_with(&ast, shell))
 }
 
 #[cfg(test)]

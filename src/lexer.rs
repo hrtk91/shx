@@ -1,6 +1,12 @@
+//! shx lexer — ソース文字列をトークン列に変換する。
+//!
+//! シェル構文（クォート、パラメータ展開、ヒアドキュメント等）を認識しつつ、
+//! shx 独自のトークン（`{` `}` `=>`）を切り出す。
+
 use std::iter::Peekable;
 use std::str::Chars;
 
+/// ソース上の位置情報（1-based）
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Span {
     pub line: usize,   // 1-based
@@ -30,6 +36,8 @@ pub struct Token {
     pub span: Span,
 }
 
+/// ソース文字列をトークン列に変換する。
+/// ヒアドキュメント・クォート・コマンド置換などのシェル構文を適切に扱う。
 pub fn tokenize(input: &str) -> Vec<Token> {
     let mut tokens = Vec::new();
     let mut chars = input.chars().peekable();

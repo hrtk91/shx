@@ -1,3 +1,8 @@
+//! shx parser — トークン列を AST に変換する。
+//!
+//! shx 独自の波括弧構文（if/for/while/match/function）を認識し、
+//! それ以外の行は `Node::Raw` としてそのまま保持する。
+
 use crate::ast::*;
 use crate::lexer::{Span, Token, TokenKind};
 use std::fmt;

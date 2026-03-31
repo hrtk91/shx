@@ -1,3 +1,9 @@
+//! shx AST — パース結果の中間表現。
+//!
+//! shx 独自構文（if/for/while/match/function）はそれぞれ専用ノードを持ち、
+//! 通常のシェルコードは `Node::Raw` としてそのまま保持される。
+
+/// shx スクリプトの構文ノード。
 #[derive(Debug, Clone, PartialEq)]
 pub enum Node {
     /// Raw shell code passed through unchanged

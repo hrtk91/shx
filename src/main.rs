@@ -29,7 +29,9 @@ fn main() {
         }
     }
 
-    let output = match shx::transpile(&input) {
+    let shell = if opts.bash { shx::Shell::Bash } else { shx::Shell::Sh };
+
+    let output = match shx::transpile_with(&input, shell) {
         Ok(out) => out,
         Err(e) => {
             eprintln!("shx: {}", e);
@@ -47,13 +49,14 @@ fn main() {
         io::stdout().write_all(output.as_bytes()).unwrap();
     } else {
         // Default for file input: transpile and execute
-        let status = Command::new("sh")
+        let shell_cmd = if opts.bash { "bash" } else { "sh" };
+        let status = Command::new(shell_cmd)
             .arg("-c")
             .arg(&output)
             .args(&opts.run_args)
             .status()
             .unwrap_or_else(|e| {
-                eprintln!("shx: failed to execute sh: {}", e);
+                eprintln!("shx: failed to execute {}: {}", shell_cmd, e);
                 std::process::exit(1);
             });
         std::process::exit(status.code().unwrap_or(1));
@@ -65,6 +68,7 @@ struct Opts<'a> {
     output_file: Option<&'a str>,
     check: bool,
     emit: bool,
+    bash: bool,
     run_args: Vec<&'a str>,
 }
 
@@ -73,6 +77,7 @@ fn parse_args<'a>(args: &'a [String]) -> Opts<'a> {
     let mut output = None;
     let mut check = false;
     let mut emit = false;
+    let mut bash = false;
     let mut run_args = Vec::new();
     let mut i = 1;
     let mut after_dashdash = false;
@@ -102,6 +107,9 @@ fn parse_args<'a>(args: &'a [String]) -> Opts<'a> {
             "--emit" => {
                 emit = true;
             }
+            "--bash" => {
+                bash = true;
+            }
             "-h" | "--help" => {
                 println!("Usage: shx [OPTIONS] [INPUT]");
                 println!();
@@ -113,7 +121,8 @@ fn parse_args<'a>(args: &'a [String]) -> Opts<'a> {
                 println!("Options:");
                 println!("  -o, --output <FILE>  Output file (writes stdout if omitted)");
                 println!("      --check          Check syntax only");
-                println!("      --emit           Output transpiled POSIX sh to stdout");
+                println!("      --emit           Output transpiled shell script to stdout");
+                println!("      --bash           Target bash instead of POSIX sh");
                 println!("  -h, --help           Print help");
                 println!("  -V, --version        Print version");
                 std::process::exit(0);
@@ -138,6 +147,7 @@ fn parse_args<'a>(args: &'a [String]) -> Opts<'a> {
         output_file: output,
         check,
         emit,
+        bash,
         run_args,
     }
 }

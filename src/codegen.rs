@@ -1,21 +1,45 @@
+//! shx codegen — AST を POSIX sh (または bash) スクリプトに変換する。
+//!
+//! 波括弧構文を then/do/done/fi/esac 等の POSIX 形式に展開し、
+//! 先頭に `set -eu` を自動注入する。
+
 use crate::ast::*;
 
+/// 出力先シェルの種別。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Shell {
+    Sh,
+    Bash,
+}
+
+/// AST をシェルスクリプト文字列に変換する。
+/// shebang があれば対象シェルに正規化し、`set -eu` を注入する。
 pub fn emit(nodes: &[Node]) -> String {
+    emit_with(nodes, Shell::Sh)
+}
+
+/// 出力先シェルを指定して AST をスクリプト文字列に変換する。
+pub fn emit_with(nodes: &[Node], shell: Shell) -> String {
     let mut output = String::new();
 
+    let shebang = match shell {
+        Shell::Sh => "#!/bin/sh",
+        Shell::Bash => "#!/usr/bin/env bash",
+    };
+
     // shx strict mode: inject set -eu after shebang (if any)
-    let (shebang, rest) = match nodes.first() {
+    let rest = match nodes.first() {
         Some(Node::Raw(s)) if s.starts_with("#!") => {
-            output.push_str("#!/bin/sh\n");
+            output.push_str(shebang);
+            output.push('\n');
             output.push_str("set -eu\n");
-            (true, &nodes[1..])
+            &nodes[1..]
         }
         _ => {
             output.push_str("set -eu\n");
-            (false, nodes)
+            nodes
         }
     };
-    let _ = shebang;
 
     emit_nodes(rest, &mut output, 0);
     output
