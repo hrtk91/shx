@@ -22,21 +22,23 @@ pub fn emit(nodes: &[Node]) -> String {
 pub fn emit_with(nodes: &[Node], shell: Shell) -> String {
     let mut output = String::new();
 
-    let shebang = match shell {
-        Shell::Sh => "#!/bin/sh",
-        Shell::Bash => "#!/usr/bin/env bash",
+    let (shebang, strict) = match shell {
+        Shell::Sh => ("#!/bin/sh", "set -eu"),
+        Shell::Bash => ("#!/usr/bin/env bash", "set -euo pipefail"),
     };
 
-    // shx strict mode: inject set -eu after shebang (if any)
+    // shx strict mode: inject strict options after shebang (if any)
     let rest = match nodes.first() {
         Some(Node::Raw(s)) if s.starts_with("#!") => {
             output.push_str(shebang);
             output.push('\n');
-            output.push_str("set -eu\n");
+            output.push_str(strict);
+            output.push('\n');
             &nodes[1..]
         }
         _ => {
-            output.push_str("set -eu\n");
+            output.push_str(strict);
+            output.push('\n');
             nodes
         }
     };
