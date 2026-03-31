@@ -3,6 +3,15 @@ name = "shx"
 version = "0.1.0"
 edition = "2024"
 description = "A superset of POSIX sh with modern control flow syntax"
+autobins = false
+
+[[bin]]
+name = "shx"
+path = "src/main.rs"
+
+[[bin]]
+name = "bashx"
+path = "src/bashx.rs"
 
 [dependencies]
 toml = "0.8"
