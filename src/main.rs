@@ -53,6 +53,7 @@ fn main() {
         let status = Command::new(shell_cmd)
             .arg("-c")
             .arg(&output)
+            .arg(opts.input_file.unwrap()) // $0 = original script path
             .args(&opts.run_args)
             .status()
             .unwrap_or_else(|e| {
