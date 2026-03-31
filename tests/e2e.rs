@@ -115,3 +115,30 @@ echo "${FOO} world"
 "#;
     assert_eq!(run_shx(input), "hello world\n");
 }
+
+#[test]
+fn e2e_function() {
+    let input = r#"
+greet() {
+  echo "hello $1"
+}
+greet world
+"#;
+    assert_eq!(run_shx(input), "hello world\n");
+}
+
+#[test]
+fn e2e_function_with_control_flow() {
+    let input = r#"
+is_even() {
+  if [ $(($1 % 2)) -eq 0 ] {
+    echo "even"
+  } else {
+    echo "odd"
+  }
+}
+is_even 4
+is_even 3
+"#;
+    assert_eq!(run_shx(input), "even\nodd\n");
+}

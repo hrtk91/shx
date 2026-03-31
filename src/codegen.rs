@@ -86,6 +86,11 @@ fn emit_node(node: &Node, out: &mut String, indent: usize) {
             emit_nodes(body, out, indent + 1);
             out.push_str(&format!("{}done\n", p));
         }
+        Node::Function { name, body } => {
+            out.push_str(&format!("{}{}() {{\n", p, name));
+            emit_nodes(body, out, indent + 1);
+            out.push_str(&format!("{}}}\n", p));
+        }
         Node::Match { expr, arms } => {
             out.push_str(&format!("{}case {} in\n", p, expr));
             for arm in arms {

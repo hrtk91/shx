@@ -129,6 +129,7 @@ impl Parser {
                 Some("for") => self.parse_for()?,
                 Some("while") => self.parse_while()?,
                 Some("match") => self.parse_match()?,
+                Some(w) if w.ends_with("()") => self.parse_function()?,
                 _ => self.parse_raw_line(),
             };
             if let Node::Raw(ref s) = node {
@@ -244,6 +245,18 @@ impl Parser {
         let body = self.parse_body(true)?;
         self.expect_close_brace()?;
         Ok(Node::While { condition, body })
+    }
+
+    fn parse_function(&mut self) -> Result<Node, ParseError> {
+        let word = match self.next() {
+            Some(Token { kind: TokenKind::Word(w), .. }) => w,
+            _ => unreachable!(),
+        };
+        let name = word.strip_suffix("()").unwrap().to_string();
+        self.expect_open_brace()?;
+        let body = self.parse_body(true)?;
+        self.expect_close_brace()?;
+        Ok(Node::Function { name, body })
     }
 
     fn parse_match(&mut self) -> Result<Node, ParseError> {

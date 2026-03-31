@@ -25,6 +25,11 @@ pub enum Node {
         expr: String,
         arms: Vec<MatchArm>,
     },
+    /// Function definition: name() { body }
+    Function {
+        name: String,
+        body: Vec<Node>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
