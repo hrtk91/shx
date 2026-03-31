@@ -4,5 +4,10 @@ version = "0.1.0"
 edition = "2024"
 description = "A superset of POSIX sh with modern control flow syntax"
 
+[dependencies]
+toml = "0.8"
+serde = { version = "1", features = ["derive"] }
+dirs = "6"
+
 [dev-dependencies]
 pretty_assertions = "1"

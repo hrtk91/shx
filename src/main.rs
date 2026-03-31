@@ -1,8 +1,34 @@
 use std::io::{self, Read, Write};
 use std::process::Command;
 
+use serde::Deserialize;
+
+/// ~/.config/shx/config.toml の構造
+#[derive(Debug, Default, Deserialize)]
+struct Config {
+    /// デフォルトの出力先シェル ("sh" or "bash")
+    #[serde(default)]
+    shell: Option<String>,
+}
+
+/// XDG_CONFIG_HOME/shx/config.toml を読み込む。なければデフォルト。
+fn load_config() -> Config {
+    let config_dir = dirs::config_dir().unwrap_or_else(|| {
+        std::path::PathBuf::from(std::env::var("HOME").unwrap_or_default()).join(".config")
+    });
+    let path = config_dir.join("shx").join("config.toml");
+    match std::fs::read_to_string(&path) {
+        Ok(content) => toml::from_str(&content).unwrap_or_else(|e| {
+            eprintln!("shx: warning: {}: {}", path.display(), e);
+            Config::default()
+        }),
+        Err(_) => Config::default(),
+    }
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+    let config = load_config();
 
     let opts = parse_args(&args);
 
@@ -29,7 +55,8 @@ fn main() {
         }
     }
 
-    let shell = if opts.bash { shx::Shell::Bash } else { shx::Shell::Sh };
+    let use_bash = opts.bash || config.shell.as_deref() == Some("bash");
+    let shell = if use_bash { shx::Shell::Bash } else { shx::Shell::Sh };
 
     let output = match shx::transpile_with(&input, shell) {
         Ok(out) => out,
@@ -49,7 +76,7 @@ fn main() {
         io::stdout().write_all(output.as_bytes()).unwrap();
     } else {
         // Default for file input: transpile and execute
-        let shell_cmd = if opts.bash { "bash" } else { "sh" };
+        let shell_cmd = if use_bash { "bash" } else { "sh" };
         let status = Command::new(shell_cmd)
             .arg("-c")
             .arg(&output)

@@ -2,7 +2,7 @@
 
 ## What is shx?
 
-shx is a transpiler that takes shell scripts written with clean, brace-based control flow syntax and emits standard POSIX sh. It replaces the ugly parts of shell syntax -- `fi`, `done`, `esac`, `;;` -- with `{}` braces and `=>` arrows, while leaving everything else completely untouched. The output is readable, portable shell script that runs anywhere.
+shx is a transpiler that takes shell scripts written with clean, brace-based control flow syntax and emits standard POSIX sh (or bash). It replaces the ugly parts of shell syntax -- `fi`, `done`, `esac`, `;;` -- with `{}` braces and `=>` arrows, while leaving everything else completely untouched. The output is readable, portable shell script that runs anywhere.
 
 ## Quick comparison
 
@@ -32,13 +32,18 @@ match "$1" {
   "stop" | "halt" => echo "Stopping..."
   _ => echo "Usage: $0 {start|stop}"
 }
+
+greet() {
+  echo "Hello, $1!"
+}
+greet "$name"
 ```
 
 **Generated POSIX sh**:
 
 ```sh
-#!/usr/bin/env shx
-set -euo pipefail
+#!/bin/sh
+set -eu
 name="world"
 
 if [ "$name" = "world" ]; then
@@ -61,6 +66,11 @@ case "$1" in
   "stop"|"halt") echo "Stopping...";;
   *) echo "Usage: $0 {start|stop}";;
 esac
+
+greet() {
+  echo "Hello, $1!"
+}
+greet "$name"
 ```
 
 ## Features
@@ -69,7 +79,10 @@ esac
 - **`for`/`while` with `{}` braces** -- no more `do`/`done`
 - **`match` with `=>` arrows** -- no more `case`/`esac`/`;;`
 - **`_` wildcard** and **`|` alternatives** in match arms
-- **Strict mode by default** -- `set -euo pipefail` is auto-injected at the top of every output
+- **Function definitions** -- `name() { ... }` works naturally
+- **Strict mode by default** -- `set -eu` is auto-injected
+- **`--bash` mode** -- target bash instead of POSIX sh
+- **Config file** -- set defaults in `~/.config/shx/config.toml`
 - **Everything else is plain sh** -- variables, pipes, redirects, parameter expansion, command substitution all pass through unchanged
 
 ## Install
@@ -83,18 +96,35 @@ cargo install --path .
 ## Usage
 
 ```sh
-# Transpile a file, print to stdout
-shx input.shx
+# Transpile and execute a file
+shx script.shx
+
+# Transpile, print to stdout
+shx --emit script.shx
 
 # Transpile to a specific output file
-shx input.shx -o output.sh
+shx script.shx -o output.sh
 
-# Read from stdin
-cat input.shx | shx
+# Read from stdin, emit to stdout
+cat script.shx | shx
 
-# Pipe directly into sh
-shx input.shx | sh
+# Target bash instead of POSIX sh
+shx --bash --emit script.shx
+
+# Syntax check only
+shx --check script.shx
 ```
+
+## Configuration
+
+Create `~/.config/shx/config.toml` to set defaults:
+
+```toml
+# Default target shell: "sh" (default) or "bash"
+shell = "bash"
+```
+
+The `--bash` flag on the command line always takes precedence over the config.
 
 ## Design philosophy
 
@@ -102,11 +132,7 @@ shx input.shx | sh
 
 - **Control flow syntax** (`fi`, `done`, `esac`, `;;`) is painful with zero learning value. Every other language uses braces or indentation. Replaced.
 - **Parameter expansion** (`${var:-default}`, `$#`, `$@`, etc.) is worth learning. It is powerful, portable, and universal across shells. Kept as-is.
-- **Strict mode** (`set -euo pipefail`) should be the default, not an incantation you have to memorize and paste into every script.
-
-## Status
-
-Early and experimental. The transpiler works for the supported constructs, but expect rough edges. Contributions and bug reports are welcome.
+- **Strict mode** (`set -eu`) should be the default, not an incantation you have to memorize and paste into every script.
 
 ## License
 
