@@ -35,6 +35,14 @@ pub fn run() {
 
     let opts = parse_args(&args);
 
+    // LSP はstdin/stdoutを通信に使うため、input読み込みの前に分岐
+    if opts.lsp {
+        tokio::runtime::Runtime::new()
+            .expect("failed to create tokio runtime")
+            .block_on(crate::lsp::run());
+        return;
+    }
+
     let input = match opts.input_file {
         Some(path) => std::fs::read_to_string(path).unwrap_or_else(|e| {
             eprintln!("shx: {}: {}", path, e);
@@ -116,6 +124,7 @@ struct Opts<'a> {
     emit: bool,
     bash: bool,
     fmt: bool,
+    lsp: bool,
     run_args: Vec<&'a str>,
 }
 
@@ -126,6 +135,7 @@ fn parse_args<'a>(args: &'a [String]) -> Opts<'a> {
     let mut emit = false;
     let mut bash = false;
     let mut fmt = false;
+    let mut lsp = false;
     let mut run_args = Vec::new();
     let mut i = 1;
     let mut after_dashdash = false;
@@ -187,6 +197,9 @@ fn parse_args<'a>(args: &'a [String]) -> Opts<'a> {
             "fmt" if input.is_none() && !fmt => {
                 fmt = true;
             }
+            "lsp" if input.is_none() && !lsp => {
+                lsp = true;
+            }
             _ => {
                 input = Some(args[i].as_str());
             }
@@ -201,6 +214,7 @@ fn parse_args<'a>(args: &'a [String]) -> Opts<'a> {
         emit,
         bash,
         fmt,
+        lsp,
         run_args,
     }
 }
