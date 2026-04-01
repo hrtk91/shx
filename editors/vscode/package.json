@@ -1,7 +1,7 @@
 {
   "name": "shx",
   "displayName": "shx",
-  "description": "Syntax highlighting for shx — a modern superset of POSIX sh",
+  "description": "shx のシンタックスハイライトと LSP サポート",
   "version": "0.1.0",
   "publisher": "hrtk91",
   "license": "MIT",
@@ -13,6 +13,11 @@
     "vscode": "^1.75.0"
   },
   "categories": ["Programming Languages"],
+  "activationEvents": [
+    "onLanguage:shx",
+    "onLanguage:bashx"
+  ],
+  "main": "./out/extension.js",
   "contributes": {
     "languages": [
       {
@@ -39,6 +44,27 @@
         "scopeName": "source.shx",
         "path": "./syntaxes/shx.tmLanguage.json"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "shx",
+      "properties": {
+        "shx.serverPath": {
+          "type": "string",
+          "default": "shx",
+          "description": "shx バイナリのパス"
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.0"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.75.0",
+    "typescript": "^5.0.0"
+  },
+  "scripts": {
+    "compile": "tsc -p .",
+    "watch": "tsc -watch -p ."
   }
 }
