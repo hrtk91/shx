@@ -47,6 +47,15 @@ pub fn run() {
         }
     };
 
+    if opts.fmt {
+        let formatted = crate::format_source(&input).unwrap_or_else(|e| {
+            eprintln!("shx: {}", e);
+            std::process::exit(1);
+        });
+        io::stdout().write_all(formatted.as_bytes()).unwrap();
+        return;
+    }
+
     if opts.check {
         let tokens = crate::lexer::tokenize(&input);
         match crate::parser::parse(tokens) {
@@ -106,6 +115,7 @@ struct Opts<'a> {
     check: bool,
     emit: bool,
     bash: bool,
+    fmt: bool,
     run_args: Vec<&'a str>,
 }
 
@@ -115,6 +125,7 @@ fn parse_args<'a>(args: &'a [String]) -> Opts<'a> {
     let mut check = false;
     let mut emit = false;
     let mut bash = false;
+    let mut fmt = false;
     let mut run_args = Vec::new();
     let mut i = 1;
     let mut after_dashdash = false;
@@ -149,6 +160,7 @@ fn parse_args<'a>(args: &'a [String]) -> Opts<'a> {
             }
             "-h" | "--help" => {
                 println!("Usage: shx [OPTIONS] [INPUT]");
+                println!("       shx fmt [INPUT]");
                 println!();
                 println!("Transpile shx to POSIX sh");
                 println!();
@@ -172,6 +184,9 @@ fn parse_args<'a>(args: &'a [String]) -> Opts<'a> {
                 eprintln!("shx: unknown option '{}'", arg);
                 std::process::exit(1);
             }
+            "fmt" if input.is_none() && !fmt => {
+                fmt = true;
+            }
             _ => {
                 input = Some(args[i].as_str());
             }
@@ -185,6 +200,7 @@ fn parse_args<'a>(args: &'a [String]) -> Opts<'a> {
         check,
         emit,
         bash,
+        fmt,
         run_args,
     }
 }

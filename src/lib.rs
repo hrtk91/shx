@@ -1,5 +1,6 @@
 pub mod ast;
 pub mod codegen;
+pub mod fmt;
 pub mod lexer;
 pub mod parser;
 pub mod cli;
@@ -16,6 +17,13 @@ pub fn transpile_with(input: &str, shell: Shell) -> Result<String, parser::Parse
     let tokens = lexer::tokenize(input);
     let ast = parser::parse(tokens)?;
     Ok(codegen::emit_with(&ast, shell))
+}
+
+/// shx ソースを整形する。
+pub fn format_source(input: &str) -> Result<String, parser::ParseError> {
+    let tokens = lexer::tokenize(input);
+    let ast = parser::parse(tokens)?;
+    Ok(fmt::format_shx(&ast))
 }
 
 #[cfg(test)]
