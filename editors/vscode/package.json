@@ -1,0 +1,44 @@
+{
+  "name": "shx",
+  "displayName": "shx",
+  "description": "Syntax highlighting for shx — a modern superset of POSIX sh",
+  "version": "0.1.0",
+  "publisher": "hrtk91",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hrtk91/shx"
+  },
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": ["Programming Languages"],
+  "contributes": {
+    "languages": [
+      {
+        "id": "shx",
+        "aliases": ["shx", "ShellX"],
+        "extensions": [".shx"],
+        "configuration": "./language-configuration.json"
+      },
+      {
+        "id": "bashx",
+        "aliases": ["bashx", "BashX"],
+        "extensions": [".bashx"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "shx",
+        "scopeName": "source.shx",
+        "path": "./syntaxes/shx.tmLanguage.json"
+      },
+      {
+        "language": "bashx",
+        "scopeName": "source.shx",
+        "path": "./syntaxes/shx.tmLanguage.json"
+      }
+    ]
+  }
+}

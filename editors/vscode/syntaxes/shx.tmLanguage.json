@@ -1,0 +1,145 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "shx",
+  "scopeName": "source.shx",
+  "patterns": [
+    { "include": "#comment" },
+    { "include": "#shebang" },
+    { "include": "#string-double" },
+    { "include": "#string-single" },
+    { "include": "#string-backtick" },
+    { "include": "#heredoc" },
+    { "include": "#variable" },
+    { "include": "#command-substitution" },
+    { "include": "#arithmetic" },
+    { "include": "#keywords" },
+    { "include": "#match-arrow" },
+    { "include": "#function-def" },
+    { "include": "#operators" },
+    { "include": "#numeric" },
+    { "include": "#builtin" }
+  ],
+  "repository": {
+    "shebang": {
+      "match": "\\A#!.*$",
+      "name": "comment.line.shebang.shx"
+    },
+    "comment": {
+      "match": "(?<!\\$)#.*$",
+      "name": "comment.line.number-sign.shx"
+    },
+    "keywords": {
+      "match": "\\b(if|elif|else|for|in|while|match|do|done|then|fi|case|esac|return|exit|local|export|readonly|unset|shift|break|continue|eval|exec|trap|set|source)\\b",
+      "name": "keyword.control.shx"
+    },
+    "match-arrow": {
+      "match": "=>",
+      "name": "keyword.operator.arrow.shx"
+    },
+    "function-def": {
+      "match": "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(\\)",
+      "captures": {
+        "1": { "name": "entity.name.function.shx" }
+      }
+    },
+    "string-double": {
+      "name": "string.quoted.double.shx",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "match": "\\\\.",
+          "name": "constant.character.escape.shx"
+        },
+        { "include": "#variable" },
+        { "include": "#command-substitution" },
+        { "include": "#arithmetic" }
+      ]
+    },
+    "string-single": {
+      "name": "string.quoted.single.shx",
+      "begin": "'",
+      "end": "'"
+    },
+    "string-backtick": {
+      "name": "string.interpolated.backtick.shx",
+      "begin": "`",
+      "end": "`",
+      "patterns": [
+        {
+          "match": "\\\\.",
+          "name": "constant.character.escape.shx"
+        },
+        { "include": "#variable" }
+      ]
+    },
+    "heredoc": {
+      "name": "string.unquoted.heredoc.shx",
+      "begin": "<<-?\\s*(['\"]?)([a-zA-Z_][a-zA-Z0-9_]*)\\1",
+      "end": "^\\s*\\2$",
+      "beginCaptures": {
+        "0": { "name": "keyword.operator.heredoc.shx" }
+      },
+      "endCaptures": {
+        "0": { "name": "keyword.operator.heredoc.shx" }
+      }
+    },
+    "variable": {
+      "patterns": [
+        {
+          "match": "\\$\\{[^}]+\\}",
+          "name": "variable.other.bracket.shx"
+        },
+        {
+          "match": "\\$[a-zA-Z_][a-zA-Z0-9_]*",
+          "name": "variable.other.shx"
+        },
+        {
+          "match": "\\$[0-9#?@*!$-]",
+          "name": "variable.language.special.shx"
+        }
+      ]
+    },
+    "command-substitution": {
+      "name": "meta.command-substitution.shx",
+      "begin": "\\$\\(",
+      "end": "\\)",
+      "beginCaptures": {
+        "0": { "name": "punctuation.definition.command-substitution.begin.shx" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.command-substitution.end.shx" }
+      },
+      "patterns": [
+        { "include": "source.shx" }
+      ]
+    },
+    "arithmetic": {
+      "name": "meta.arithmetic.shx",
+      "begin": "\\$\\(\\(",
+      "end": "\\)\\)",
+      "beginCaptures": {
+        "0": { "name": "punctuation.definition.arithmetic.begin.shx" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.arithmetic.end.shx" }
+      },
+      "patterns": [
+        { "include": "#variable" },
+        { "include": "#numeric" }
+      ]
+    },
+    "operators": {
+      "match": "\\b(-eq|-ne|-lt|-le|-gt|-ge|-z|-n|-f|-d|-e|-r|-w|-x|-s|-o|-a)\\b",
+      "name": "keyword.operator.comparison.shx"
+    },
+    "numeric": {
+      "match": "\\b[0-9]+\\b",
+      "name": "constant.numeric.shx"
+    },
+    "builtin": {
+      "match": "\\b(echo|printf|read|test|true|false|cd|pwd|mkdir|rm|cp|mv|cat|grep|sed|awk|cut|sort|uniq|wc|head|tail|find|xargs|tee|dirname|basename)\\b",
+      "name": "support.function.builtin.shx"
+    }
+  }
+}
