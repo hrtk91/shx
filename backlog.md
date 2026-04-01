@@ -32,7 +32,9 @@ match "$val" {                  case "$val" in
 ## アーキテクチャ
 ```
 src/
-  main.rs    -- CLI エントリポイント (clap)
+  main.rs    -- CLI エントリポイント (shx)
+  bashx.rs   -- CLI エントリポイント (bashx)
+  cli.rs     -- CLI ロジック共通
   lib.rs     -- public API: transpile(&str) -> Result<String>
   lexer.rs   -- トークナイザ
   parser.rs  -- トークン列 → AST
@@ -66,10 +68,22 @@ src/
 
 ## Phase 3: 発展
 - [x] shebang対応 (`#!/usr/bin/env shx` → `#!/bin/sh` に変換)
+- [x] 関数定義サポート (`name() { ... }`)
+- [x] bashモード (`--bash` フラグ / `bashx` バイナリ / `#!/usr/bin/env bashx` shebang)
+- [x] bash時 `set -euo pipefail` 自動注入
+- [x] config ファイル (`~/.config/shx/config.toml`)
+- [x] `$0` にスクリプトパスを渡す修正
 - [ ] パイプライン内の制御構文
 - [ ] シンタックスハイライト (tree-sitter grammar)
 - [ ] POSIX sh → shx 逆変換
 - [ ] 式 if/match (Rust風: `result = if [...] { "yes" } else { "no" }` → 各ブランチで変数代入に変換)
+
+## Phase 4: ツールチェイン
+- [ ] `shx fmt` — フォーマッタ
+- [ ] LSP サーバー
+- [ ] VSCode 拡張 (シンタックスハイライト + LSP)
+- [ ] GitHub Releases でバイナリ配布 (cross-compile)
+- [ ] Homebrew tap
 
 ## 設計判断
 - POSIX sh の superset = 既存の POSIX sh スクリプトはそのまま有効な shx
