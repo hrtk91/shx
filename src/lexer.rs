@@ -559,6 +559,41 @@ mod tests {
     }
 
     #[test]
+    fn test_param_expansion_with_error_msg() {
+        // ${2:?msg} のブレースがトップレベルの } と誤認されないこと
+        let tokens = tokenize(r#"TAG="${2:?error msg}""#);
+        assert_eq!(
+            kinds(&tokens),
+            vec![Word(r#"TAG="${2:?error msg}""#.into())]
+        );
+    }
+
+    #[test]
+    fn test_param_expansion_semicolon_in_match() {
+        // match arm 内の ; 区切りでトークンが正しく分かれること
+        let input = r#"TAG="${2:?error}"; shift 2"#;
+        let tokens = tokenize(input);
+        assert_eq!(
+            kinds(&tokens),
+            vec![
+                Word(r#"TAG="${2:?error}""#.into()),
+                Semicolon,
+                Word("shift".into()),
+                Word("2".into()),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_param_expansion_unquoted() {
+        let tokens = tokenize(r#"${var:?msg}"#);
+        assert_eq!(
+            kinds(&tokens),
+            vec![Word(r#"${var:?msg}"#.into())]
+        );
+    }
+
+    #[test]
     fn test_span_tracking() {
         let tokens = tokenize("echo hello\nif [ 1 ] {");
         assert_eq!(tokens[0].span, Span { line: 1, column: 1 }); // echo
