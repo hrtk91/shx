@@ -313,19 +313,63 @@ impl Parser {
             self.expect_close_brace()?;
             body
         } else {
-            let line = self.parse_raw_line();
-            if let Node::Raw(ref s) = line {
-                if s.is_empty() {
-                    return Ok(MatchArm {
-                        pattern,
-                        body: vec![],
-                    });
-                }
+            // single-line arm: 改行まで全体を1つの Raw として読む（; も含む）
+            let line = self.parse_match_arm_line();
+            if line.is_empty() {
+                return Ok(MatchArm {
+                    pattern,
+                    body: vec![],
+                });
             }
-            vec![line]
+            vec![Node::Raw(line)]
         };
 
         Ok(MatchArm { pattern, body })
+    }
+
+    /// match arm の single-line body を読む。
+    /// `;` は区切りではなく文の一部として扱い、改行または `}` まで読む。
+    fn parse_match_arm_line(&mut self) -> String {
+        let mut out = String::new();
+        loop {
+            match self.peek_kind() {
+                None => break,
+                Some(TokenKind::Newline) => {
+                    self.next();
+                    break;
+                }
+                Some(TokenKind::CloseBrace) => break,
+                Some(TokenKind::Semicolon) => {
+                    out.push(';');
+                    self.next();
+                }
+                Some(TokenKind::Word(w)) => {
+                    if !out.is_empty() && !out.ends_with(';') {
+                        out.push(' ');
+                    } else if out.ends_with(';') {
+                        out.push(' ');
+                    }
+                    out.push_str(&w.clone());
+                    self.next();
+                }
+                Some(TokenKind::OpenBrace) => {
+                    if !out.is_empty() { out.push(' '); }
+                    out.push('{');
+                    self.next();
+                }
+                Some(TokenKind::Arrow) => {
+                    if !out.is_empty() { out.push(' '); }
+                    out.push_str("=>");
+                    self.next();
+                }
+                Some(TokenKind::Comment(c)) => {
+                    if !out.is_empty() { out.push(' '); }
+                    out.push_str(&c.clone());
+                    self.next();
+                }
+            }
+        }
+        out
     }
 
     fn parse_raw_line(&mut self) -> Node {
@@ -472,5 +516,39 @@ mod tests {
         let tokens = tokenize("for i {\n  echo $i\n}");
         let err = parse(tokens).unwrap_err();
         assert!(err.message.contains("expected 'in'"));
+    }
+
+    #[test]
+    fn test_match_arm_semicolon_spacing() {
+        // ; の前後のスペースの有無に関わらずパースできること
+        for input in [
+            "match \"$1\" {\n  \"a\" => echo 1; echo 2\n}",
+            "match \"$1\" {\n  \"a\" => echo 1 ; echo 2\n}",
+            "match \"$1\" {\n  \"a\" => echo 1 ;echo 2\n}",
+        ] {
+            let tokens = tokenize(input);
+            let ast = parse(tokens).unwrap();
+            assert!(matches!(&ast[0], Node::Match { .. }), "failed for: {}", input);
+        }
+    }
+
+    #[test]
+    fn test_match_arm_with_param_expansion_brace() {
+        // ${2:?msg} の } が match の閉じブレースと誤認されないこと
+        let input = r#"match "$1" {
+  "--rollback" => TAG="${2:?error}"; shift 2
+}"#;
+        let tokens = tokenize(input);
+        let ast = parse(tokens).unwrap();
+        assert_eq!(
+            ast,
+            vec![Node::Match {
+                expr: r#""$1""#.into(),
+                arms: vec![MatchArm {
+                    pattern: r#""--rollback""#.into(),
+                    body: vec![Node::Raw(r#"TAG="${2:?error}"; shift 2"#.into())],
+                }],
+            }]
+        );
     }
 }
