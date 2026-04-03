@@ -147,12 +147,21 @@ impl Parser {
         Ok(nodes)
     }
 
-    fn collect_until_brace(&mut self) -> String {
+    fn collect_until_brace(&mut self) -> Result<String, ParseError> {
         let mut parts = Vec::new();
         loop {
             match self.peek_kind() {
                 None | Some(TokenKind::OpenBrace) => break,
                 Some(TokenKind::Newline | TokenKind::Semicolon) => break,
+                Some(TokenKind::Word(w)) if matches!(w.as_str(), "if" | "for" | "while" | "match") => {
+                    return Err(ParseError {
+                        message: format!(
+                            "条件部に '{}' ブロックは使えません。関数に切り出してください",
+                            w
+                        ),
+                        span: self.current_span(),
+                    });
+                }
                 Some(TokenKind::Word(w)) => {
                     parts.push(w.clone());
                     self.next();
@@ -168,12 +177,12 @@ impl Parser {
                 Some(TokenKind::CloseBrace) => break,
             }
         }
-        parts.join(" ")
+        Ok(parts.join(" "))
     }
 
     fn parse_if(&mut self) -> Result<Node, ParseError> {
         self.next(); // consume "if"
-        let condition = self.collect_until_brace();
+        let condition = self.collect_until_brace()?;
         self.expect_open_brace()?;
         let body = self.parse_body(true)?;
         self.expect_close_brace()?;
@@ -186,7 +195,7 @@ impl Parser {
                 break;
             }
             self.next();
-            let condition = self.collect_until_brace();
+            let condition = self.collect_until_brace()?;
             self.expect_open_brace()?;
             let body = self.parse_body(true)?;
             self.expect_close_brace()?;
@@ -236,7 +245,7 @@ impl Parser {
                 });
             }
         }
-        let list = self.collect_until_brace();
+        let list = self.collect_until_brace()?;
         self.expect_open_brace()?;
         let body = self.parse_body(true)?;
         self.expect_close_brace()?;
@@ -245,7 +254,7 @@ impl Parser {
 
     fn parse_while(&mut self) -> Result<Node, ParseError> {
         self.next(); // consume "while"
-        let condition = self.collect_until_brace();
+        let condition = self.collect_until_brace()?;
         self.expect_open_brace()?;
         let body = self.parse_body(true)?;
         self.expect_close_brace()?;
@@ -266,7 +275,7 @@ impl Parser {
 
     fn parse_match(&mut self) -> Result<Node, ParseError> {
         self.next(); // consume "match"
-        let expr = self.collect_until_brace();
+        let expr = self.collect_until_brace()?;
         self.expect_open_brace()?;
 
         let mut arms = Vec::new();
