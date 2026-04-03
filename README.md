@@ -87,7 +87,15 @@ greet "$name"
 
 ## Install
 
-From source (requires Rust toolchain):
+ワンライナー:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/hrtk91/shx/master/install.sh | sh
+```
+
+[GitHub Releases](https://github.com/hrtk91/shx/releases) からバイナリを直接ダウンロードもできます。
+
+ソースからビルド (Rust toolchain が必要):
 
 ```
 cargo install --path .
