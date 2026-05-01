@@ -141,7 +141,9 @@ fn parse_args<'a>(args: &'a [String]) -> Opts<'a> {
     let mut after_dashdash = false;
 
     while i < args.len() {
-        if after_dashdash {
+        if after_dashdash || input.is_some() {
+            // 入力ファイル指定後は暗黙的に -- とみなし、以降は全てスクリプトへの引数として扱う
+            // （python script.py --foo / node script.js --foo と同じ慣習）
             run_args.push(args[i].as_str());
             i += 1;
             continue;
@@ -194,10 +196,11 @@ fn parse_args<'a>(args: &'a [String]) -> Opts<'a> {
                 println!("  -V, --version        バージョンを表示");
                 println!();
                 println!("Examples:");
-                println!("  shx script.shx           トランスパイルして実行");
-                println!("  shx --emit script.shx    トランスパイル結果を表示");
-                println!("  shx fmt script.shx       ソースを整形");
-                println!("  cat script.shx | shx     stdin から読んでトランスパイル");
+                println!("  shx script.shx                トランスパイルして実行");
+                println!("  shx script.shx --foo bar      スクリプトに --foo bar を渡して実行");
+                println!("  shx --emit script.shx         トランスパイル結果を表示");
+                println!("  shx fmt script.shx            ソースを整形");
+                println!("  cat script.shx | shx          stdin から読んでトランスパイル");
                 println!();
                 println!("Syntax:");
                 println!("  shx は POSIX sh のスーパーセットです。通常の sh コードはそのまま書けます。");
@@ -270,5 +273,60 @@ fn parse_args<'a>(args: &'a [String]) -> Opts<'a> {
         fmt,
         lsp,
         run_args,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_args(items: &[&str]) -> Vec<String> {
+        std::iter::once("shx")
+            .chain(items.iter().copied())
+            .map(String::from)
+            .collect()
+    }
+
+    #[test]
+    fn passthrough_flag_after_input_file() {
+        let args = make_args(&["script.shx", "--voice", "push"]);
+        let opts = parse_args(&args);
+        assert_eq!(opts.input_file, Some("script.shx"));
+        assert_eq!(opts.run_args, vec!["--voice", "push"]);
+    }
+
+    #[test]
+    fn passthrough_subcommand_after_input_file() {
+        let args = make_args(&["script.shx", "push", "--backend-only"]);
+        let opts = parse_args(&args);
+        assert_eq!(opts.input_file, Some("script.shx"));
+        assert_eq!(opts.run_args, vec!["push", "--backend-only"]);
+    }
+
+    #[test]
+    fn options_before_input_are_consumed_by_shx() {
+        let args = make_args(&["--bash", "--emit", "script.shx", "--foo"]);
+        let opts = parse_args(&args);
+        assert!(opts.bash);
+        assert!(opts.emit);
+        assert_eq!(opts.input_file, Some("script.shx"));
+        assert_eq!(opts.run_args, vec!["--foo"]);
+    }
+
+    #[test]
+    fn explicit_dashdash_routes_everything_to_run_args() {
+        let args = make_args(&["--", "script.shx", "--foo"]);
+        let opts = parse_args(&args);
+        assert_eq!(opts.input_file, None);
+        assert_eq!(opts.run_args, vec!["script.shx", "--foo"]);
+    }
+
+    #[test]
+    fn output_flag_consumes_value_then_passthrough() {
+        let args = make_args(&["-o", "out.sh", "script.shx", "--foo"]);
+        let opts = parse_args(&args);
+        assert_eq!(opts.output_file, Some("out.sh"));
+        assert_eq!(opts.input_file, Some("script.shx"));
+        assert_eq!(opts.run_args, vec!["--foo"]);
     }
 }
